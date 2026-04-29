@@ -11,30 +11,39 @@ concurrentqueue_dep = dependency('concurrentqueue')
 inc_dir = include_directories('include')
 internal_inc_dir = include_directories('include/ImagerPluginCore')
 
+toml_dep = dependency('tomlplusplus', static: true)
+
+cmake = import('cmake')
+serial_subproj = cmake.subproject('serial_cpp')
+serial_dep = serial_subproj.dependency('serial_cpp')
+
 # Core library sources
 core_sources = [
   'src/BaseCameraClass.cpp',
-  'src/CameraPropertiesEncoding.cpp',
   'src/CameraUtils.cpp',
+  'src/ConfigManager.cpp',
   'src/ImageProcessingUtils.cpp',
-  'src/ImagerPlugin.cpp',
+  'src/CameraPropertiesEncoding.cpp',
   'src/PluginManager.cpp',
   'src/RobotProgramArguments.cpp',
-  'src/StandardCameraProperties.cpp'
+  'src/SerialPort.cpp',
+  'src/StandardCameraProperties.cpp',
 ]
+
+api_source = files('src/ImagerPlugin.cpp')
 
 # Static library build
 imager_core_lib = static_library('ImagerPluginCore',
   core_sources,
   include_directories: [inc_dir, internal_inc_dir],
-  dependencies: [json_dep, concurrentqueue_dep]
+  dependencies: [json_dep, concurrentqueue_dep, toml_dep, serial_dep]
 )
 
 # How consumers will see and link against this project
 imager_core_dep = declare_dependency(
   include_directories: inc_dir,
   link_with: imager_core_lib,
-  dependencies: [json_dep, concurrentqueue_dep]
+  dependencies: [json_dep, concurrentqueue_dep, toml_dep, serial_dep]
 )
 
 # Register it for the wrap system (if included via subproject)

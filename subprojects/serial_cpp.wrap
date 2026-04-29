@@ -1,0 +1,4 @@
+[wrap-git]
+url = https://github.com/gbionics/serial_cpp.git
+revision = 2ab9e20388a6efca8540e5ae8910e9e2c42a71f4
+method = cmake
