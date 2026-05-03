@@ -17,6 +17,16 @@ cmake = import('cmake')
 serial_subproj = cmake.subproject('serial_cpp')
 serial_dep = serial_subproj.dependency('serial_cpp')
 
+# Cause the compile to fail if there are any switch statements
+# that don't handle all enum cases. This exists to enforce support
+# for postprocessing of new pixel format types.
+cpp = meson.get_compiler('cpp')
+if cpp.get_id() == 'msvc'
+  add_project_arguments('/we4062', language: 'cpp')
+else
+  add_project_arguments('-Werror=switch', language: 'cpp')
+endif
+
 # Core library sources
 core_sources = [
   'src/BaseCameraClass.cpp',
