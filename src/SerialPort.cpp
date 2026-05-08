@@ -83,7 +83,28 @@ std::uint8_t SerialPort::writeByteAndReadByte(const std::uint8_t byte) {
 std::string SerialPort::writeAndReadUntilString(const std::string& dataToWrite, const std::string& terminatorString) {
     write(dataToWrite);
 
+
+
     std::string response = _serial.readline(65536, terminatorString);
+    
+    if (_printCommunication) {
+        std::string msg = std::format("{} read: {}\n", _serial.getPort(), response);
+        PluginManager::Manager().Print(msg);
+    }
+    
+    return response;
+}
+
+
+std::string SerialPort::writeAndReadUntilStringWithPolling(const std::string& dataToWrite, const std::string& terminatorString) {
+    write(dataToWrite);
+
+
+    std::string response = "";
+    while (response.length() == 0)
+    {
+        response = _serial.readline(65536, terminatorString);
+    }
     if (_printCommunication) {
         std::string msg = std::format("{} read: {}\n", _serial.getPort(), response);
         PluginManager::Manager().Print(msg);
