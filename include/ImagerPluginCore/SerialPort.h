@@ -34,6 +34,8 @@ public:
     void clearBuffers();
 
 private:
+    static std::string _ConvertCRtoLF(const std::string& input);
+
     serial_cpp::Serial _serial;
     bool _printCommunication = false;
 };
