@@ -58,7 +58,8 @@ void SerialPort::write(const std::string& data) {
     }
 
     if (_printCommunication) {
-        std::string msg = std::format("{} wrote: {}\n", _serial.getPort(), data);
+        std::string edited = _ConvertCRtoLF(data);
+        std::string msg = std::format("{} wrote: {}\n", _serial.getPort(), edited);
         PluginManager::Manager().Print(msg);
     }
 }
@@ -70,7 +71,9 @@ std::string SerialPort::read() {
 std::string SerialPort::read(size_t maxNBytesToRead) {
     std::string response = _serial.read(maxNBytesToRead);
     if (_printCommunication) {
-        std::string msg = std::format("{} read: {}\n", _serial.getPort(), response);
+        // convert '\r' to '\n' since it affects the terminal output
+        std::string editedResponse = _ConvertCRtoLF(response);
+        std::string msg = std::format("{} read: {}\n", _serial.getPort(), editedResponse);
         PluginManager::Manager().Print(msg);
     }
     return response;
@@ -84,6 +87,13 @@ std::uint8_t SerialPort::writeByteAndReadByte(const std::uint8_t byte) {
         std::string errMsg = std::format("Expected to read 1 byte from {} but read nothing", _serial.getPort());
         throw std::runtime_error(errMsg);
     }
+    if (_printCommunication) {
+        unsigned int written = static_cast<unsigned int>(byte);
+        unsigned int readb = static_cast<unsigned int>(static_cast<uint8_t>(response[0]));
+        std::string msg = std::format("{} wrote byte: {} (0x{:02X}) and read byte: {} (0x{:02X})\n",
+                                      _serial.getPort(), written, written, readb, readb);
+        PluginManager::Manager().Print(msg);
+    }
 
     return static_cast<std::uint8_t>(response[0]);
 }
@@ -91,7 +101,10 @@ std::uint8_t SerialPort::writeByteAndReadByte(const std::uint8_t byte) {
 std::string SerialPort::writeAndReadUntilString(const std::string& dataToWrite, const std::string& terminatorString) {
     write(dataToWrite);
 
+
+
     std::string response = _serial.readline(65536, terminatorString);
+    
     if (_printCommunication) {
         std::string msg = std::format("{} read: {}\n", _serial.getPort(), response);
         PluginManager::Manager().Print(msg);
@@ -100,6 +113,36 @@ std::string SerialPort::writeAndReadUntilString(const std::string& dataToWrite, 
     return response;
 }
 
+
+std::string SerialPort::writeAndReadUntilStringWithPolling(const std::string& dataToWrite, const std::string& terminatorString) {
+    write(dataToWrite);
+
+
+    std::string response = "";
+    while (response.length() == 0)
+    {
+        response = _serial.readline(65536, terminatorString);
+    }
+    if (_printCommunication) {
+        std::string editedResponse = _ConvertCRtoLF(response);
+        std::string msg = std::format("{} read: {}\n", _serial.getPort(), editedResponse);
+        PluginManager::Manager().Print(msg);
+    }
+    
+    return response;
+}
+
 void SerialPort::clearBuffers() {
     _serial.flush();
+}
+
+std::string SerialPort::_ConvertCRtoLF(const std::string &input) {
+    // convert '\r' to '\n' since it affects the terminal output
+    std::string edited = input;
+    for (size_t i = 0; i < edited.size(); ++i) {
+        if (edited.at(i) == '\r') {
+            edited.at(i) = '\n';
+        }
+    }
+    return edited;
 }

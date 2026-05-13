@@ -30,10 +30,12 @@ public:
 
     std::uint8_t writeByteAndReadByte(const std::uint8_t byte);
     std::string writeAndReadUntilString(const std::string& dataToWrite, const std::string& terminatorString);
-
+    std::string writeAndReadUntilStringWithPolling(const std::string& dataToWrite, const std::string& terminatorString);
     void clearBuffers();
 
 private:
+    static std::string _ConvertCRtoLF(const std::string& input);
+
     serial_cpp::Serial _serial;
     bool _printCommunication = false;
 };
