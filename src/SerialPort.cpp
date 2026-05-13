@@ -16,7 +16,7 @@ void SerialPort::open(const std::string& portName, std::uint32_t baudRate, std::
     _serial.setParity(serial_cpp::parity_t::parity_none);
     _serial.setStopbits(serial_cpp::stopbits_t::stopbits_one);
 
-    serial_cpp::Timeout timeout(50,             // inter_byte_timeout
+    serial_cpp::Timeout timeout(serial_cpp::Timeout::max(),             // inter_byte_timeout
                             timeoutMillis,  // read_timeout_constant
                             0,              // read_timeout_multiplier
                             timeoutMillis,  // write_timeout_constant
