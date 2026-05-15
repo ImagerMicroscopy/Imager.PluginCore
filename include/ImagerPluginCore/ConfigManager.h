@@ -33,13 +33,30 @@ inline ConfigPath operator/(ConfigPath lhs, const ConfigPath& rhs) {
 
 class ConfigManager {
 public:
+    template<typename T>
+    class ConfigSetting {
+        public:
+            ConfigSetting(T value, bool wasFoundInConfig) : value(std::move(value)), wasFoundInConfig(wasFoundInConfig) {}
+            T value;
+            bool wasFoundInConfig;
+    };
+
     ConfigManager(const std::filesystem::path& configFilePath);
     ~ConfigManager(); // Will save the config on destruction, or manually
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
-    void storeSetting(const ConfigPath& configPath, const std::string& value);
-    std::pair<std::string, bool> getSettingOrDefault(const ConfigPath& configPath, const std::string& defaultValue);
+    void storeStringSetting(const ConfigPath& configPath, const std::string& value);
+    void storeBoolSetting(const ConfigPath& configPath, bool value);
+    void storeIntSetting(const ConfigPath& configPath, int value);
+    void storeDoubleSetting(const ConfigPath& configPath, double value);
+    void storePathSetting(const ConfigPath& configPath, const std::filesystem::path& value);
+
+    ConfigSetting<std::string> getStringSettingOrDefault(const ConfigPath& configPath, const std::string& defaultValue);
+    ConfigSetting<bool> getBoolSettingOrDefault(const ConfigPath& configPath, bool defaultValue);
+    ConfigSetting<int> getIntSettingOrDefault(const ConfigPath& configPath, int defaultValue);
+    ConfigSetting<double> getDoubleSettingOrDefault(const ConfigPath& configPath, double defaultValue);
+    ConfigSetting<std::filesystem::path> getPathSettingOrDefault(const ConfigPath& configPath, const std::filesystem::path& defaultValue);
 
     void save(); // Trigger a manual save
 
