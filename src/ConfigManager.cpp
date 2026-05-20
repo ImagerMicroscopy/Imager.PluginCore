@@ -28,7 +28,6 @@ ConfigManager::ConfigManager(const std::filesystem::path& configFilePath)
 }
 
 ConfigManager::~ConfigManager() {
-    save();
 }
 
 void ConfigManager::save() {
@@ -63,6 +62,8 @@ void ConfigManager::storeStringSetting(const ConfigPath& configPath, const std::
     
     // Insert or replace the value
     currentTable->insert_or_assign(finalKey, value);
+
+    save();
 }
 
 void ConfigManager::storeBoolSetting(const ConfigPath& configPath, bool value) {
