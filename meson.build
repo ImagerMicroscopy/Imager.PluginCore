@@ -14,7 +14,8 @@ internal_inc_dir = include_directories('include/ImagerPluginCore')
 toml_dep = dependency('tomlplusplus', static: true)
 
 cmake = import('cmake')
-serial_subproj = cmake.subproject('serial_cpp')
+# activate PIC code generation for static library generation on Linux. Does nothing on Windows.
+serial_subproj = cmake.subproject('serial_cpp', cmake_options: ['-DCMAKE_POSITION_INDEPENDENT_CODE=ON'])
 serial_dep = serial_subproj.dependency('serial_cpp')
 
 # Cause the compile to fail if there are any switch statements
