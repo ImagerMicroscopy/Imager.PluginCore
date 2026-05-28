@@ -3,6 +3,7 @@
 
 // http://www.flounder.com/ultimateheaderfile.htm
 
+#include <cstddef>
 #include <cstdint>
 
 #ifdef COMPILING_IMAGERPLUGIN  // set this define when compiling a plugin
