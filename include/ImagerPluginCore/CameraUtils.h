@@ -8,8 +8,12 @@
 #include <mutex>
 #include <utility>
 
+// A camera image. The pixel data is stored row-major: the fastest-varying index runs
+// along the columns. nRows is the number of rows (the image height, the slow axis),
+// nCols the number of columns (the image width, the fast axis).
 class AcquiredImage {
 public:
+    // These are synced with the definitions used by Imager.Core.
     enum PixelFormat {
         Mono8 = 2,
         Mono16 = 0,
@@ -69,6 +73,8 @@ private:
 std::string wcharStringToUtf8(const std::wstring& str);
 std::wstring utf8StringToWChar(const std::string& str);
 
+// nRows: number of rows (image height); nCols: number of columns (image width).
+// The returned image's data is row-major, varying fastest along the columns.
 AcquiredImage NewRecycledImage(AcquiredImage::PixelFormat pixelFormat, int nRows, int nCols, double timestamp = 0.0);
 
 #endif // CAMERAUTILS_H

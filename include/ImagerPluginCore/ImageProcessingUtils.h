@@ -48,6 +48,8 @@ public:
 
 class IPDCrop : public ImageProcessingDescriptor {
 public:
+    // nRows and nCols are the dimensions of the cropped image: the number of rows
+    // (height) and columns (width), respectively.
     IPDCrop(size_t nRowsRHS, size_t nColsRHS) : nRows(nRowsRHS), nCols(nColsRHS) {}
     ImageProcessingTypes getType() const override;
     size_t nRows, nCols;
@@ -57,58 +59,63 @@ class AcquiredImage; // Forward declaration
 
 AcquiredImage ProcessImage(const AcquiredImage& inputImage, const std::vector<std::shared_ptr<ImageProcessingDescriptor>>& processingDescriptors);
 
+// All kernels below use row-major storage (index = row * nCols + col): nRows is the
+// number of rows (the image height, the slow axis), nCols the number of columns (the
+// image width, the fast axis). The pixel data varies fastest along the columns. This
+// matches the layout delivered by the camera SDKs and expected by the consumers of
+// the plugin API.
+
 template <typename T>
 void RotateCW(const T* image, size_t nRows, size_t nCols, T* rotatedImage) {
-    // Assuming column-major storage: index = col * nRows + row
-    for (size_t c = 0; c < nCols; ++c) {
-        for (size_t r = 0; r < nRows; ++r) {
-            size_t new_r = c;
-            size_t new_c = nRows - 1 - r;
-            rotatedImage[new_c * nCols + new_r] = image[c * nRows + r];
+    // Clockwise rotation: image(r, c) -> rotated(c, nRows - 1 - r).
+    // The output image has nCols rows and nRows columns.
+    for (size_t r = 0; r < nRows; ++r) {
+        for (size_t c = 0; c < nCols; ++c) {
+            rotatedImage[c * nRows + (nRows - 1 - r)] = image[r * nCols + c];
         }
     }
 }
 
 template <typename T>
 void RotateCCW(const T* image, size_t nRows, size_t nCols, T* rotatedImage) {
-    // Assuming column-major storage: index = col * nRows + row
-    for (size_t c = 0; c < nCols; ++c) {
-        for (size_t r = 0; r < nRows; ++r) {
-            size_t new_r = nCols - 1 - c;
-            size_t new_c = r;
-            rotatedImage[new_c * nCols + new_r] = image[c * nRows + r];
+    // Counterclockwise rotation: image(r, c) -> rotated(nCols - 1 - c, r).
+    // The output image has nCols rows and nRows columns.
+    for (size_t r = 0; r < nRows; ++r) {
+        for (size_t c = 0; c < nCols; ++c) {
+            rotatedImage[(nCols - 1 - c) * nRows + r] = image[r * nCols + c];
         }
     }
 }
 
 template <typename T>
 void FlipHorizontal(const T* image, size_t nRows, size_t nCols, T* flippedImage) {
-    for (size_t c = 0; c < nCols; ++c) {
-        size_t flipped_c = nCols - 1 - c;
-        for (size_t r = 0; r < nRows; ++r) {
-            flippedImage[flipped_c * nRows + r] = image[c * nRows + r];
+    // Flip about the horizontal axis: the rows are reversed.
+    for (size_t r = 0; r < nRows; ++r) {
+        for (size_t c = 0; c < nCols; ++c) {
+            flippedImage[r * nCols + c] = image[(nRows - 1 - r) * nCols + c];
         }
     }
 }
 
 template <typename T>
 void FlipVertical(const T* image, size_t nRows, size_t nCols, T* flippedImage) {
-    for (size_t c = 0; c < nCols; ++c) {
-        for (size_t r = 0; r < nRows; ++r) {
-            size_t flipped_r = nRows - 1 - r;
-            flippedImage[c * nRows + flipped_r] = image[c * nRows + r];
+    // Flip about the vertical axis: the columns are reversed.
+    for (size_t r = 0; r < nRows; ++r) {
+        for (size_t c = 0; c < nCols; ++c) {
+            flippedImage[r * nCols + c] = image[r * nCols + (nCols - 1 - c)];
         }
     }
 }
 
 template <typename T>
 void CropImage(const T* image, size_t nRows, size_t nCols, size_t outputNRows, size_t outputNCols, T* croppedImage) {
+    // Centered crop to outputNRows x outputNCols.
     size_t rowOffset = (nRows - outputNRows) / 2;
     size_t colOffset = (nCols - outputNCols) / 2;
-    
-    for (size_t c = 0; c < outputNCols; ++c) {
-        for (size_t r = 0; r < outputNRows; ++r) {
-            croppedImage[c * outputNRows + r] = image[(c + colOffset) * nRows + (r + rowOffset)];
+
+    for (size_t r = 0; r < outputNRows; ++r) {
+        for (size_t c = 0; c < outputNCols; ++c) {
+            croppedImage[r * outputNCols + c] = image[(r + rowOffset) * nCols + (c + colOffset)];
         }
     }
 }
@@ -126,18 +133,19 @@ void BinImage(const T* image, size_t nRows, size_t nCols, T* binnedImage, const 
     int nRowsOutput = nRows / binFactor;
     int nColsOutput = nCols / binFactor;
 
-    const T* inputPtr = image;
     T* outputPtr = binnedImage;
 
     using AccumType = std::conditional_t<std::is_floating_point_v<T>, double, std::uint32_t>;
     AccumType maxVal = static_cast<AccumType>(std::numeric_limits<T>::max());
 
-    for (int col = 0; col < nColsOutput; col += 1) {
-        for (int row = 0; row < nRowsOutput; row += 1) {
+    for (int row = 0; row < nRowsOutput; row += 1) {
+        const T* inputPtr = image + (row * binFactor) * nCols;
+        for (int col = 0; col < nColsOutput; col += 1) {
             AccumType accum = 0;
-            for (int bCol = 0; bCol < binFactor; bCol += 1) {
-                for (int bRow = 0; bRow < binFactor; bRow += 1) {
-                    accum += static_cast<AccumType>(*(inputPtr + bRow + bCol * nRows));
+            for (int bRow = 0; bRow < binFactor; bRow += 1) {
+                const T* blockRowPtr = inputPtr + bRow * nCols;
+                for (int bCol = 0; bCol < binFactor; bCol += 1) {
+                    accum += static_cast<AccumType>(blockRowPtr[bCol]);
                 }
             }
             if constexpr (std::is_integral_v<T>) {
@@ -148,7 +156,6 @@ void BinImage(const T* image, size_t nRows, size_t nCols, T* binnedImage, const 
             outputPtr += 1;
             inputPtr += binFactor;
         }
-        inputPtr += nRows * (binFactor - 1);
     }
 }
 
