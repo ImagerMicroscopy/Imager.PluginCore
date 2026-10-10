@@ -4,6 +4,15 @@
 #include <mutex>
 #include <stdexcept>
 
+// Defined out-of-line so that each plugin (DSO) linked against this static
+// library gets its own instance. An inline definition here would give the
+// instance's symbol STB_GNU_UNIQUE binding on Linux, which makes the dynamic
+// loader share one instance between all loaded plugins.
+PluginManager& PluginManager::Manager() {
+    static PluginManager instance;
+    return instance;
+}
+
 std::shared_ptr<LightSource> PluginManager::getLightSourceByName(const std::string& name) {
     auto it = std::find_if(_availableLightSources.begin(), _availableLightSources.end(),
         [&](const std::shared_ptr<LightSource>& ls) { return ls->getName() == name; });

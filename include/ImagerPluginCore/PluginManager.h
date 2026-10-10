@@ -11,10 +11,7 @@
 
 class PluginManager {
 public:
-    static PluginManager& Manager() {
-        static PluginManager instance;
-        return instance;
-    }
+    static PluginManager& Manager();
 
     PluginManager(const PluginManager&) = delete;
     PluginManager& operator=(const PluginManager&) = delete;
