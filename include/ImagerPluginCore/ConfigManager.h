@@ -42,7 +42,7 @@ public:
     };
 
     ConfigManager(const std::filesystem::path& configFilePath);
-    ~ConfigManager(); // Will save the config on destruction, or manually
+    ~ConfigManager(); // Settings are written to disk immediately whenever they are stored.
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
