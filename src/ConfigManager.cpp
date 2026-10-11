@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <format>
 #include <fstream>
-#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -72,8 +72,18 @@ ConfigManager::ConfigManager(const std::filesystem::path& configFilePath)
         try {
             _impl->table = toml::parse_file(_configFilePath.string());
         } catch (const toml::parse_error& err) {
-            std::cerr << "Parsing failed: " << err << "\n";
-            // Handled as empty config, or you could throw an exception
+            // Throw rather than continue with an empty configuration: continuing would
+            // cause default values to be written back, overwriting the user's malformed
+            // file. Throwing from the constructor also guarantees that no ConfigManager
+            // for this file ever comes into existence, so the file cannot be overwritten
+            // by a later save().
+            std::ostringstream parseErrorStream;
+            parseErrorStream << err;
+            throw std::runtime_error(std::format(
+                "Failed to parse the configuration file '{}':\n{}\n"
+                "The file was left unmodified. Fix the error, or delete or rename the file - "
+                "a default configuration file will then be generated automatically.",
+                _configFilePath.string(), parseErrorStream.str()));
         }
     }
 }
