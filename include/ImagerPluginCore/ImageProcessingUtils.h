@@ -1,6 +1,7 @@
 #ifndef IMAGEPROCESSINGUTILS_H
 #define IMAGEPROCESSINGUTILS_H
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -65,13 +66,26 @@ AcquiredImage ProcessImage(const AcquiredImage& inputImage, const std::vector<st
 // matches the layout delivered by the camera SDKs and expected by the consumers of
 // the plugin API.
 
+// Rotations write along the columns of the output, which touches a different cache
+// line for every pixel when done naively. Processing the image in square tiles keeps
+// both the source and the destination block resident in L1 cache.
+constexpr size_t kImageProcessingTileSize = 32;
+
 template <typename T>
 void RotateCW(const T* image, size_t nRows, size_t nCols, T* rotatedImage) {
     // Clockwise rotation: image(r, c) -> rotated(c, nRows - 1 - r).
     // The output image has nCols rows and nRows columns.
-    for (size_t r = 0; r < nRows; ++r) {
-        for (size_t c = 0; c < nCols; ++c) {
-            rotatedImage[c * nRows + (nRows - 1 - r)] = image[r * nCols + c];
+    constexpr size_t kTile = kImageProcessingTileSize;
+    for (size_t r0 = 0; r0 < nRows; r0 += kTile) {
+        const size_t rEnd = std::min(r0 + kTile, nRows);
+        for (size_t c0 = 0; c0 < nCols; c0 += kTile) {
+            const size_t cEnd = std::min(c0 + kTile, nCols);
+            for (size_t c = c0; c < cEnd; ++c) {
+                T* outputRow = rotatedImage + c * nRows + (nRows - 1);
+                for (size_t r = r0; r < rEnd; ++r) {
+                    *(outputRow - r) = image[r * nCols + c];
+                }
+            }
         }
     }
 }
@@ -80,9 +94,17 @@ template <typename T>
 void RotateCCW(const T* image, size_t nRows, size_t nCols, T* rotatedImage) {
     // Counterclockwise rotation: image(r, c) -> rotated(nCols - 1 - c, r).
     // The output image has nCols rows and nRows columns.
-    for (size_t r = 0; r < nRows; ++r) {
-        for (size_t c = 0; c < nCols; ++c) {
-            rotatedImage[(nCols - 1 - c) * nRows + r] = image[r * nCols + c];
+    constexpr size_t kTile = kImageProcessingTileSize;
+    for (size_t r0 = 0; r0 < nRows; r0 += kTile) {
+        const size_t rEnd = std::min(r0 + kTile, nRows);
+        for (size_t c0 = 0; c0 < nCols; c0 += kTile) {
+            const size_t cEnd = std::min(c0 + kTile, nCols);
+            for (size_t c = c0; c < cEnd; ++c) {
+                T* outputRow = rotatedImage + (nCols - 1 - c) * nRows;
+                for (size_t r = r0; r < rEnd; ++r) {
+                    outputRow[r] = image[r * nCols + c];
+                }
+            }
         }
     }
 }
@@ -91,9 +113,7 @@ template <typename T>
 void FlipHorizontal(const T* image, size_t nRows, size_t nCols, T* flippedImage) {
     // Flip about the horizontal axis: the rows are reversed.
     for (size_t r = 0; r < nRows; ++r) {
-        for (size_t c = 0; c < nCols; ++c) {
-            flippedImage[r * nCols + c] = image[(nRows - 1 - r) * nCols + c];
-        }
+        std::memcpy(flippedImage + r * nCols, image + (nRows - 1 - r) * nCols, nCols * sizeof(T));
     }
 }
 
@@ -101,9 +121,8 @@ template <typename T>
 void FlipVertical(const T* image, size_t nRows, size_t nCols, T* flippedImage) {
     // Flip about the vertical axis: the columns are reversed.
     for (size_t r = 0; r < nRows; ++r) {
-        for (size_t c = 0; c < nCols; ++c) {
-            flippedImage[r * nCols + c] = image[r * nCols + (nCols - 1 - c)];
-        }
+        const T* inputRow = image + r * nCols;
+        std::reverse_copy(inputRow, inputRow + nCols, flippedImage + r * nCols);
     }
 }
 
@@ -114,9 +133,7 @@ void CropImage(const T* image, size_t nRows, size_t nCols, size_t outputNRows, s
     size_t colOffset = (nCols - outputNCols) / 2;
 
     for (size_t r = 0; r < outputNRows; ++r) {
-        for (size_t c = 0; c < outputNCols; ++c) {
-            croppedImage[r * outputNCols + c] = image[(r + rowOffset) * nCols + (c + colOffset)];
-        }
+        std::memcpy(croppedImage + r * outputNCols, image + (r + rowOffset) * nCols + colOffset, outputNCols * sizeof(T));
     }
 }
 
